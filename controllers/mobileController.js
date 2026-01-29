@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const moment_timeZone = require('moment-timezone');
+// const moment_timeZone = require('moment-timezone');
+const { toStr, checkRequestAuth, getUserRandomToken } = require('../helper/helper_functions');
 
 
 
@@ -102,39 +103,27 @@ const apiCheckUsername = async (req, res) => {
 };
 
 const apiUserRegistration = async (req, res) => {
-    const session = await mongoose.startSession();
 
     try {
         if (!process?.env?.JWT_SECRET) {
             return res.status(500).json({ success: false, msg: "JWT secret not found" });
         }
 
-        await session.withTransaction(async () => {
             let {
-                app_key = "",
-                env_type = "",
                 username = "",
+                email = "",
                 mobile = "",
                 password = "",
-                refer_code = '',
-                security_pin = ''
             } = req?.body || {};
 
-            app_key = toStr(app_key);
-            env_type = toStr(env_type);
             username = toStr(username);
             mobile = toStr(mobile);
             password = toStr(password);
-            refer_code = toStr(refer_code);
-            security_pin = toStr(security_pin);
+            email = toStr(email);
 
             // Validation checks with consistent response pattern
-            if (!app_key || !env_type || !username || !mobile || !password || !security_pin) {
+            if ( !username || !email || !mobile || !password ) {
                 throw new Error("All fields are required.");
-            }
-
-            if (!checkRequestAuth(app_key, env_type)) {
-                throw new Error("Unauthorized request.");
             }
 
             const mobileRegex = /^\d{10}$/;
@@ -149,34 +138,15 @@ const apiUserRegistration = async (req, res) => {
 
             const mobileNum = Number(mobile);
             const exists = await user_module
-                .findOne({ $or: [{ mobile: mobileNum }, { username }] })
-                .session(session)
+                .findOne({ $or: [{ mobile: mobileNum }, { email }] })
                 .lean();
+
+                console.log(`(((((((()))))) ~ mobileController.js:246 ~ apiUserRegistration ~ exists:`, exists);
 
             if (exists) {
                 throw new Error("Mobile or username already registered.");
             }
 
-            let referByUser = null;
-            if (refer_code) {
-                referByUser = await user_module
-                    .findOne({ my_code: refer_code })
-                    .session(session)
-                    .lean();
-
-                console.log(`(((((((()))))) ~ mobileController.js:704 ~ apiUserRegistration ~ referByUser:`, referByUser);
-                if (!referByUser) {
-                    throw new Error("Invalid refer code.");
-                }
-            }
-
-            const settings = await fix_values_module.findOne().session(session).lean();
-            console.log(`(((((((()))))) ~ mobileController.js:710 ~ apiUserRegistration ~ settings:`, settings);
-            const welcome_bonus = settings?.welcome_bonus || 0;
-
-            // Generate security pin (since it's required in schema but not in request)
-            // const security_pin = Math.floor(1000 + Math.random() * 9000); // Generate 4-digit pin
-            const pinNumber = Number(security_pin);
             const my_code = getUserRandomToken(8, true);
 
             // Hash password before storing
@@ -186,57 +156,19 @@ const apiUserRegistration = async (req, res) => {
                 user_name: username,
                 mobile: mobileNum,
                 password: hashedPassword,
-                security_pin: pinNumber,
-                refer_code: refer_code || undefined,
                 my_code,
-                wallet_balance: welcome_bonus,
             };
 
-            const createdUser = await user_module.create([newUserData], { session });
-
-            const adminData = await admin_module.findOneAndUpdate({ admin_type: 0 }, { $inc: { wallet_amount: -welcome_bonus } })
-            console.log("🚀 ~ apiUserRegistration ~ adminData:", adminData)
+            const createdUser = await user_module.create([newUserData]);
 
             const created = createdUser?.[0];
 
-            if (referByUser) {
-                await refer_details_module.create([{
-                    refer_to: created._id,
-                    refer_by: referByUser._id,
-                    refer_code,
-                    bonus: welcome_bonus
-                }], { session });
-            }
-
-            if (welcome_bonus > 0) {
-                await wallet_trans_history_module.create([{
-                    userDB_id: created._id,
-                    amount: welcome_bonus,
-                    transaction_type: 1,
-                    before_wallet: 0,
-                    transaction_note: 'User Welcome Bonus',
-                    amount_status: 6,
-                    admin_name: adminData?.username || '',
-                    admin_type: (adminData?.admin_type == 0 ? 0 : 1),
-                    tx_request_number: getUserRandomToken()
-                }], { session });
-
-                await new user_notification_module({
-                    userDB_id: created._id,
-                    // toSpecificUser:true,
-                    title: "Welcome bonus",
-                    msg: `🎉 Welcome to our platform! You've received your Welcome Bonus ₹${welcome_bonus}. Good luck! 🍀`
-                }).save({ session });
-            }
-
-            // Send single response at the end
             return res.json({
                 success: true,
                 user_name: created.user_name,
                 mobile: created.mobile,
                 msg: 'You are successfully registered.'
             });
-        });
 
     } catch (error) {
         console.error('Error in apiUserRegistration:', error);
@@ -252,9 +184,7 @@ const apiUserRegistration = async (req, res) => {
             success: false,
             msg: error?.message || 'Internal Server Error'
         });
-    } finally {
-        session.endSession();
-    }
+    } 
 };
 
 
@@ -317,26 +247,19 @@ const apiUserLogin = async (req, res) => {
         if (!process?.env?.JWT_SECRET) {
             return res.status(500).json({ success: false, msg: "JWT secret not found" });
         }
-        let { app_key = "", env_type = "", mobile = "", password = "", device_id = "" } = req?.body || {};
-        app_key = toStr(app_key);
-        env_type = toStr(env_type);
+        let {  mobile = "", password = "" } = req?.body || {};
         mobile = Number(toStr(mobile));
         inputPassword = toStr(password);
-        device_id = toStr(device_id);
 
 
         // if (!app_key || !env_type || !mobile || !device_id) {
-        if (!app_key || !env_type || !mobile) {
+        if (!password ||!mobile) {
             return res
                 .status(400)
                 .json({ success: false, msg: 'All fields are required.' });
         }
 
-        if (!checkRequestAuth(app_key, env_type)) {
-            return res
-                .status(401)
-                .json({ success: false, msg: 'Unauthorized request.' });
-        }
+       
 
         const mobileRegex = /^\d{10}$/;
         // const passwordRegex = /^.{8,}$/;
@@ -345,12 +268,7 @@ const apiUserLogin = async (req, res) => {
                 .status(400)
                 .json({ success: false, msg: 'Invalid mobile. Must be 10 digits.' });
         }
-        // if (!passwordRegex.test(password)) {
-        //     return res
-        //         .status(400)
-        //         .json({ success: false, msg: 'Password must be â‰¥8 characters.' });
-        // }
-
+      
         if (password.length < 6) {
             return res
                 .status(400)
@@ -416,7 +334,6 @@ const apiUserLogin = async (req, res) => {
         const unique_jwt_token = jwt.sign(
             {
                 user: user._id,
-                device_id: device_id, // Add device identifier
             },
             process.env.JWT_SECRET,
             { expiresIn: "30d" }   // optional, but recommended
@@ -425,9 +342,6 @@ const apiUserLogin = async (req, res) => {
         // user.unique_jwt_token = unique_jwt_token
         // 
         user.logout_status = 0;
-
-        user.device_id = device_id;
-
         await user.save();
 
         return res.json({

@@ -160,7 +160,7 @@ router.put('/:id', jwt_check_middleware, async (req, res) => {
   }
 });
 
-// Toggle service status (admin)
+// Toggle service status (admin) //pending for test or implementation
 router.patch('/:id/toggle', jwt_check_middleware, async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
@@ -183,7 +183,7 @@ router.patch('/:id/toggle', jwt_check_middleware, async (req, res) => {
   }
 });
 
-// Delete service (admin)
+// Delete service (admin) //pending for test or implementation
 router.delete('/:id', jwt_check_middleware, async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);

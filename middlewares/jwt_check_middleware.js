@@ -36,23 +36,6 @@ const jwt_check_middleware = async (req, res, next) => {
 
     if (req.path.includes('/api')) {
         console.log("--------------path check in mobile API----------", req.path)
-        let { app_key, env_type } = req?.body || { app_key: '', env_type: '' };
-
-        app_key = toStr(app_key);
-        // console.log(`(((((((()))))) ~ jwt_check_middleware.js:84 ~ jwt_check_middleware ~ app_key:`, app_key);
-
-        env_type = toStr(env_type);
-        // console.log(`(((((((()))))) ~ jwt_check_middleware.js:84 ~ jwt_check_middleware ~ env_type:`, env_type);
-
-        if (!app_key || !env_type) {
-            console.log('Missing required parameters');
-            return res.status(400).json({ success: false, msg: 'Missing required parameters' });
-        }
-
-        let auth = checkRequestAuth(app_key, env_type);
-        if (auth === 0) {
-            return res.status(401).json({ success: false, msg: 'Unauthorized' });
-        }
 
         token = req?.body?.unique_jwt_token || req?.query?.unique_jwt_token;
         // console.log("token in api", token);
@@ -132,31 +115,7 @@ const jwt_check_middleware = async (req, res, next) => {
             if (!admin) {
                 return res.status(401).json({ success: false, jwt_error_msg: "Admin not found" });
             }
-
-            const accessing = req?.body?.accessing || req?.query?.accessing;
-            console.log("🚀 ~ jwt_check_middleware ~ accessing:", accessing)
-
-            if (
-                admin.admin_type === 1 &&
-                !(admin.accessMenus.includes(accessing) || accessing === 'admin_login' || accessing === 'logout' || accessing === 'sub_admin')
-            ) {
-
-                console.log("sub admin true, access menu check false-", admin.accessMenus.includes(accessing));
-
-
-                if (!accessing && req.method === 'POST' && req.path.includes('add-manual-payment-details')) {
-                    const formDataAccessing = req?.body?.accessing;
-                    if (formDataAccessing && admin.accessMenus.includes(formDataAccessing)) {
-                        return next();
-                    }
-                }
-
-                return res.status(401).json({
-                    success: false,
-                    page_not_allowed_error_msg: "You are not allowed to access this menu"
-                });
-            }
-
+            
             console.log("final login phase ---------------")
             req.admin = admin;
             return next();

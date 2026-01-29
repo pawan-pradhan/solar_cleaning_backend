@@ -186,7 +186,7 @@ router.post('/', jwt_check_middleware, async (req, res) => {
 router.put('/:id', jwt_check_middleware, async (req, res) => {
   try {
     const {
-      name,
+      user_name,
       email,
       phone,
       password,
@@ -200,7 +200,7 @@ router.put('/:id', jwt_check_middleware, async (req, res) => {
 
     const updateData = {};
     
-    if (name) updateData.name = name;
+    if (user_name) updateData.user_name = user_name;
     if (email) updateData.email = email;
     if (phone) updateData.phone = phone;
     if (address) updateData.address = address;
@@ -327,7 +327,7 @@ router.get('/dashboard/kpi', jwt_check_middleware, async (req, res) => {
       recentUsers
     ] = await Promise.all([
       User.countDocuments(),
-      User.countDocuments({ status: 'active' }),
+      User.countDocuments({ status: 1 }),
       User.countDocuments({ role: 'partner' }),
       User.countDocuments({ createdAt: { $gte: startOfDay } }),
       User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
