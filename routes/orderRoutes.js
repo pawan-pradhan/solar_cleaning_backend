@@ -1,11 +1,13 @@
-// routes/orderRoutes.js
+// routes/orderRoutes.js - FIXED IMPORT
 const express = require('express');
 const router = express.Router();
 const Order = require('../model/orderModel');
 const Service = require('../model/serviceModel');
+
+// Import the middleware
 const { jwt_check_middleware } = require('../middlewares/jwt_check_middleware');
 
-// Get all orders (with filters) - ADMIN
+// Now use it
 router.get('/', jwt_check_middleware, async (req, res) => {
   try {
     const {
