@@ -114,22 +114,33 @@ const loginCheck = async (req, res) => {
         console.log('✅ Token generated:', token.substring(0, 20) + '...');
 
         // Set cookie
-        res.cookie("unique_jwt_token", token, {
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-            httpOnly: true,
-            signed: true,
-            secure: false,
-            sameSite: 'lax'
+        // res.cookie("unique_jwt_token", token, {
+        //     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        //     httpOnly: true,
+        //     signed: true,
+        //     secure: false,
+        //     sameSite: 'lax'
+        // });
+
+        // In loginCheck controller - return token in JSON
+        return res.status(200).json({
+        success: true,
+        token: token, // ⬅️ ADD THIS
+        testToken: token,
+        msg: "Login successful.",
+        redirectRoute: '/dashboard',
+        admin_user_name: user.username,
+        admin_type: user.admin_type,
+        adminAccess: user.accessMenus || []
         });
 
-        return res.status(200).json({
-            success: true,
-            testToken: token,
-            msg: "Login successful.",
-            redirectRoute: '/dashboard',
-            admin_user_name: user.username,
-            admin_type: user.admin_type,
-            adminAccess: user.accessMenus || []
+        // Keep cookie as backup
+        res.cookie("unique_jwt_token", token, {
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            signed: true,
+            secure: false, // false for localhost
+            sameSite: 'lax'
         });
 
     } catch (err) {
