@@ -157,6 +157,7 @@ const apiUserRegistration = async (req, res) => {
                 mobile: mobileNum,
                 password: hashedPassword,
                 my_code,
+                email
             };
 
             const createdUser = await user_module.create([newUserData]);
